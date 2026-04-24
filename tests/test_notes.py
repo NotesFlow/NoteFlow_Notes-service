@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
 
 from app.api.routes.notes import (
     archive_my_note,
@@ -22,7 +23,7 @@ def current_user():
 @pytest.mark.asyncio
 async def test_get_current_user_rejects_missing_authorization_header():
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(authorization=None)
+        await get_current_user(credentials=None)
 
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Missing authorization token"
@@ -31,7 +32,9 @@ async def test_get_current_user_rejects_missing_authorization_header():
 @pytest.mark.asyncio
 async def test_get_current_user_rejects_invalid_authorization_header():
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(authorization="Token abc")
+        await get_current_user(
+            credentials=HTTPAuthorizationCredentials(scheme="Token", credentials="abc")
+        )
 
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Invalid authorization header"
