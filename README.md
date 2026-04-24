@@ -244,16 +244,16 @@ Recommended manual flow:
 
 ## Automated Tests
 
-Current automated coverage is minimal and only checks the health endpoint:
+Current automated coverage includes:
 
 - [tests/test_health.py](tests/test_health.py)
+- [tests/test_notes.py](tests/test_notes.py)
 
 The next useful step is adding tests for:
 
-- token validation behavior
-- integration with `auth-service`
-- integration with `notes-data-service`
-- public CRUD flows
+- full end-to-end integration with real `auth-service`
+- full end-to-end integration with real `notes-data-service`
+- additional edge cases around invalid payloads and upstream failures
 
 ## Current Status
 
