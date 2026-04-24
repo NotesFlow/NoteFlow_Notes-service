@@ -1,178 +1,326 @@
 # NoteFlow Notes Service
 
-Public notes microservice for the NoteFlow project.
+notes-service is the public-facing microservice responsible for handling note-related operations in the NoteFlow project.
 
-This service connects the authenticated user from `auth-service` with note persistence from `notes-data-service`.
+It acts as the bridge between authenticated users and the internal persistence layer (`notes-data-service`).
+
+---
 
 ## Responsibilities
 
 This service is responsible for:
 
-- exposing public note endpoints
-- validating bearer tokens by calling `auth-service /me`
-- extracting the authenticated `user_id`
-- calling `notes-data-service` with that `user_id`
-- keeping clients away from internal `/internal/notes` endpoints
+* validating authenticated users via auth-service
+* exposing public note endpoints
+* calling notes-data-service for persistence
+* enforcing user-level access control
 
-This service is not responsible for:
+This service is **not responsible for**:
 
-- registration or login
-- password hashing
-- JWT generation
-- direct PostgreSQL access
-- creating the notes table
+* user registration or login
+* password hashing or JWT generation
+* direct database access
 
-## Architecture Flow
+---
 
-```text
+## Role In The Architecture
+
+The application flow is:
+
+```
 Client
   -> notes-service
-      -> auth-service /me
-      -> notes-data-service /internal/notes
+      -> auth-service (/me)
+      -> notes-data-service (/internal/notes)
           -> PostgreSQL
 ```
 
+Within NoteFlow:
+
+* auth-service handles authentication
+* notes-service handles public API and access control
+* notes-data-service handles persistence
+
+---
+
 ## Tech Stack
 
-- Python 3.10
-- FastAPI
-- httpx
-- Uvicorn
-- pytest
+* Python
+* FastAPI
+* httpx
+* Docker
+* pytest
+
+---
+
+## Project Structure
+
+```
+app/
+├── core/
+│   └── config.py
+├── dependencies/
+│   └── auth.py
+├── routers/
+│   └── notes.py
+├── schemas/
+│   └── notes.py
+└── main.py
+
+tests/
+└── test_notes.py
+
+Dockerfile
+requirements.txt
+.env.example
+```
+
+---
 
 ## Environment Variables
 
-Create `.env` from `.env.example`.
+Defined in `.env.example`:
 
-Local non-Docker example:
-
-```env
+```
 NOTES_SERVICE_PORT=8002
+
 AUTH_SERVICE_URL=http://127.0.0.1:8001
 NOTES_DATA_SERVICE_URL=http://127.0.0.1:8003
 ```
 
-Docker on Mac example, when auth-service and notes-data-service are exposed on the host:
+### Docker on Mac note
 
-```env
+If running inside Docker:
+
+```
 AUTH_SERVICE_URL=http://host.docker.internal:8001
 NOTES_DATA_SERVICE_URL=http://host.docker.internal:8003
 ```
 
-## Run Locally
+---
 
-```bash
+## Running The Service
+
+### Local
+
+```
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+
 uvicorn app.main:app --reload --port 8002
 ```
 
 Swagger UI:
 
-```text
+```
 http://127.0.0.1:8002/docs
 ```
 
-## Docker
+---
 
-```bash
+### Docker
+
+```
 docker build -t noteflow-notes-service .
 docker run --rm -p 8002:8002 --env-file .env noteflow-notes-service
 ```
 
-## Public API Endpoints
+---
 
-All `/notes` endpoints require:
-
-```http
-Authorization: Bearer <access_token>
-```
+## Health Endpoints
 
 ### GET /health
 
-Checks whether the service is running.
+```
+{
+  "status": "ok",
+  "service": "NoteFlow Notes Service",
+  "version": "0.1.0"
+}
+```
+
+---
+
+## Public API Endpoints
+
+All endpoints require:
+
+```
+Authorization: Bearer <access_token>
+```
+
+---
 
 ### GET /notes
 
-Lists the authenticated user's notes.
+Returns notes for the authenticated user.
+
+---
 
 ### POST /notes
 
-Creates a note for the authenticated user.
+Creates a new note.
 
-Request body:
+Request:
 
-```json
+```
 {
   "title": "My note",
   "content": "Example content"
 }
 ```
 
+---
+
+### GET /notes/{note_id}
+
+Returns a specific note.
+
+---
+
 ### PUT /notes/{note_id}
 
-Updates a note owned by the authenticated user.
+Updates a note.
 
-```json
-{
-  "title": "Updated title",
-  "content": "Updated content"
-}
-```
+---
 
 ### DELETE /notes/{note_id}
 
-Deletes a note owned by the authenticated user.
+Deletes a note.
+
+---
 
 ### PATCH /notes/{note_id}/archive
 
-```json
-{
-  "is_archived": true
-}
-```
+Archives/unarchives a note.
+
+---
 
 ### PATCH /notes/{note_id}/pin
 
-```json
+Pins/unpins a note.
+
+---
+
+## Authentication Flow
+
+1. Client logs in via auth-service
+2. Receives JWT token
+3. Sends requests to notes-service with Authorization header
+4. notes-service calls:
+
+```
+GET /me (auth-service)
+```
+
+5. Extracts user_id
+6. Calls notes-data-service with user_id
+
+---
+
+## Example Flow
+
+### 1. Login
+
+```
+POST http://127.0.0.1:8001/login
+```
+
+---
+
+### 2. Create note
+
+```
+POST http://127.0.0.1:8002/notes
+Authorization: Bearer TOKEN
+```
+
+---
+
+### 3. Internal call
+
+notes-service calls:
+
+```
+POST /internal/notes
+```
+
+with:
+
+```
 {
-  "is_pinned": true
+  "user_id": 1,
+  "title": "...",
+  "content": "..."
 }
 ```
 
-## Manual Demo
+---
 
-1. Start PostgreSQL.
-2. Start `auth-service` on port `8001`.
-3. Start `notes-data-service` on port `8003`.
-4. Start this service on port `8002`.
-5. Register and login through `auth-service`.
-6. Use the returned JWT against this service:
+## Validation Rules
 
-```bash
-curl -X POST http://127.0.0.1:8002/notes \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer TOKEN_HERE" \
-  -d '{"title":"First public note","content":"Created through notes-service"}'
+* token must be valid
+* user must exist (validated via auth-service)
+* user_id is NEVER taken from request body
+* all operations are scoped to authenticated user
+
+---
+
+## Error Behavior
+
+Expected responses:
+
+* 401 Unauthorized → invalid or missing token
+* 404 Not Found → note not owned by user
+* 422 Unprocessable Entity → invalid request
+
+---
+
+## Manual Testing
+
+Use Swagger:
+
+```
+http://127.0.0.1:8002/docs
 ```
 
-Then list notes:
+Steps:
 
-```bash
-curl http://127.0.0.1:8002/notes \
-  -H "Authorization: Bearer TOKEN_HERE"
-```
+1. Login via auth-service
+2. Copy token
+3. Click "Authorize" in Swagger
+4. Test endpoints
+
+---
 
 ## Current Status
 
-Implemented:
+Current implementation:
 
-- FastAPI bootstrap
-- auth-service token validation
-- notes-data-service HTTP client
-- public CRUD endpoints
-- archive endpoint
-- pin endpoint
-- Docker support
+* authentication integration completed
+* communication with notes-data-service completed
+* CRUD endpoints implemented
+* user-level access control enforced
+
+---
+
+## Next Step
+
+Next integration point:
+
+* Kong API Gateway
+* routing:
+
+  * /auth → auth-service
+  * /notes → notes-service
+
+---
+
+## Notes
+
+* notes-service does not access PostgreSQL directly
+* all persistence is delegated to notes-data-service
+* architecture follows microservice separation of concerns
+
+---
