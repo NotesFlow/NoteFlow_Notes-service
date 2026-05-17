@@ -37,6 +37,7 @@ Client
 - FastAPI
 - httpx
 - Uvicorn
+- Prometheus metrics
 - pytest
 
 ## Project Structure
@@ -104,6 +105,12 @@ Swagger UI:
 http://127.0.0.1:8002/docs
 ```
 
+Prometheus metrics:
+
+```text
+http://127.0.0.1:8002/metrics
+```
+
 ## Run With Docker
 
 ```bash
@@ -124,6 +131,12 @@ Returns the service status:
   "version": "0.1.0"
 }
 ```
+
+## Metrics Endpoint
+
+### `GET /metrics`
+
+Exposes Prometheus-compatible HTTP metrics for monitoring.
 
 ## Public API Endpoints
 
