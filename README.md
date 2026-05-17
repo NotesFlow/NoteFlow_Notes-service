@@ -118,6 +118,28 @@ docker build -t noteflow-notes-service .
 docker run --rm -p 8002:8002 --env-file .env noteflow-notes-service
 ```
 
+## CI/CD
+
+GitHub Actions workflow:
+
+- [.github/workflows/docker-image.yml](.github/workflows/docker-image.yml)
+
+The workflow runs tests, builds the Docker image, and publishes it to Docker Hub on pushes to `main`.
+
+Docker Hub image:
+
+- `albertart10/noteflow-notes-service`
+
+Published tags:
+
+- `latest`
+- `sha-<commit-sha>`
+
+Required GitHub Actions secrets:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
 ## Health Endpoint
 
 ### `GET /health`
