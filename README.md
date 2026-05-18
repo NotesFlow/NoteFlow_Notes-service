@@ -25,7 +25,8 @@ This service is not responsible for:
 
 ```text
 Client
-  -> notes-service
+  -> kong /notes
+    -> notes-service
       -> auth-service /me
       -> notes-data-service /internal/notes
           -> PostgreSQL
@@ -60,7 +61,8 @@ app/
 └── main.py
 
 tests/
-└── test_health.py
+├── test_health.py
+└── test_notes.py
 
 Dockerfile
 .dockerignore
@@ -277,6 +279,12 @@ Recommended manual flow:
 11. test `PATCH /notes/{note_id}/pin`
 12. test `DELETE /notes/{note_id}`
 
+In the full deployed stack, public traffic should go through Kong:
+
+```text
+http://127.0.0.1:8000/notes
+```
+
 ## Automated Tests
 
 Current automated coverage includes:
@@ -284,7 +292,7 @@ Current automated coverage includes:
 - [tests/test_health.py](tests/test_health.py)
 - [tests/test_notes.py](tests/test_notes.py)
 
-The next useful step is adding tests for:
+Possible future test improvements:
 
 - full end-to-end integration with real `auth-service`
 - full end-to-end integration with real `notes-data-service`
@@ -292,7 +300,7 @@ The next useful step is adding tests for:
 
 ## Current Status
 
-Implemented:
+The service is complete for the public notes part of the MVP:
 
 - FastAPI bootstrap
 - token validation through `auth-service`
@@ -301,17 +309,20 @@ Implemented:
 - archive endpoint
 - pin endpoint
 - Docker support
+- Prometheus metrics
+- automated tests
+- Docker image build and publication through GitHub Actions
+- Swarm deployment through the infrastructure repository
 
-## Next Step
+## Final Integration
 
-The next implementation step is to harden this service before wider integration:
+In the final NoteFlow stack:
 
-- remove remaining documentation drift
-- add automated tests for `/notes`
-- verify the full flow with `auth-service` and `notes-data-service`
-
-* notes-service does not access PostgreSQL directly
-* all persistence is delegated to notes-data-service
-* architecture follows microservice separation of concerns
+- `kong` exposes this service publicly under `/notes`
+- `auth-service` validates the bearer token through `/me`
+- `notes-data-service` performs all direct note persistence
+- `postgres` is not accessed directly by this service
+- `prometheus` scrapes `/metrics`
+- Docker Swarm runs the published Docker Hub image `albertart10/noteflow-notes-service:latest`
 
 ---
